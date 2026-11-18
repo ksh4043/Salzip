@@ -1,0 +1,39 @@
+# 비밀 값 (API 키는 환경 변수로만 읽는다 - AGENTS.md 5장 보안)
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 가상환경
+.venv/
+venv/
+env/
+
+# RAG 임베딩·인덱스 산출물 (원본 문서는 data/docs/에서 다시 만들 수 있음, 대용량)
+rag/index/
+rag/vectorstore/
+*.faiss
+*.pkl
+chroma/
+chroma_db/
+
+# 개인 AI 도구 설정·작업 기록 (AGENTS.md 5장: AI 작업 기록을 저장소에 남기지 않기)
+.claude/settings.local.json
+.claude/memory/
+.codex/
+
+# 에디터·OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

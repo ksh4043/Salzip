@@ -1,0 +1,9 @@
+# Python 3.11 이상
+streamlit
+openai
+requests
+python-dotenv
+pytest
+
+# TODO(확인 필요): 팀이 정하면 추가한다.
+# - RAG용 임베딩·벡터 검색 라이브러리 (담당 C)
