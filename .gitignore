@@ -37,3 +37,6 @@ chroma_db/
 .idea/
 .DS_Store
 Thumbs.db
+
+data/chroma/
+test_results/
