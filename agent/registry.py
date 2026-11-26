@@ -68,6 +68,9 @@ CTX_THRESHOLD = "threshold"
 CTX_MARKET_PRICE = "market_price"
 CTX_RISK_LEVEL = "risk_level"
 CTX_RISK_NOTE = "risk_note"
+# 정책 도구용 세션 키. 값은 tools/policy.py의 AGE_BANDS, INCOME_BANDS 키(구간 이름)다.
+CTX_AGE_BAND = "age_band"
+CTX_INCOME_BAND = "income_band"
 
 
 SEARCH_PRICE = ToolSpec(
@@ -217,12 +220,88 @@ SUBMIT_REPORT = ToolSpec(
     ends_loop=True,
 )
 
-# TODO(D): tools/policy.py의 search_policy, check_eligibility가 구현되면 여기에 등록한다.
-#   나이·소득 구간·무주택 여부는 parameters가 아니라 injected로 받는다 (AGENTS.md 4장).
+SEARCH_POLICY = ToolSpec(
+    name="search_policy",
+    func_path="tools.policy:search_policy",
+    description=(
+        "온통청년 청년정책 API에서 매물 지역의 청년 주거 지원 정책(월세·전세자금 대출이자·보증료 지원, 공공임대 등)을 찾는다. "
+        "언제 쓰나: 사용자가 받을 수 있는 주거 지원을 찾을 때. 안전 판정이면 특히 힘써 찾는다. "
+        "찾은 정책은 check_eligibility로 자격을 판정한 뒤에만 보고서에 넣는다. "
+        "check_eligibility에서 해당 없음이 나오면 그 policy_id를 exclude_ids에 넣어 다른 정책을 다시 찾는다. "
+        "결과가 없다는 실패가 오면 keyword를 바꾸거나 빼고 다시 찾는다. "
+        "쓰지 말 것: 시세·전세가율 계산, 법·보증보험 근거 검색. 정책 이름·내용을 지어내지 않는다."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "region": {
+                "type": "string",
+                "description": '매물 지역. 시/도·시/군/구까지 넣는다. 예: "서울 강서구 화곡동". 서울·인천·경기만 지원.',
+            },
+            "keyword": {
+                "type": ["string", "null"],
+                "description": '좁혀 찾을 말. 예: "월세", "전세 이자", "보증료". 띄어 쓴 말 중 하나라도 맞으면 찾는다. 전체를 보려면 null.',
+            },
+            "exclude_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 50,
+                "description": "결과에서 뺄 policy_id 목록. 이미 판정했거나 해당 없음인 정책.",
+            },
+            "include_closed": {
+                "type": "boolean",
+                "description": "신청이 마감된 정책도 볼지. 기본 false.",
+            },
+            "max_results": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 15,
+                "description": "돌려받을 정책 수. 기본 8.",
+            },
+        },
+        "required": ["region"],
+    },
+)
+
+CHECK_ELIGIBILITY = ToolSpec(
+    name="check_eligibility",
+    func_path="tools.policy:check_eligibility",
+    description=(
+        "search_policy로 찾은 정책마다 사용자의 자격을 판정한다(해당 / 확인 필요 / 해당 없음). "
+        "거주지역·나이·연소득·혼인·취업상태·학력·신청기간 조건을 함수로 비교하고, "
+        "소득 기준이 문장으로만 있거나(중위소득 % 등) 사용자 구간이 기준에 걸치면 확인 필요로 둔다. "
+        "나이·소득 구간은 사용자 입력에서 자동으로 채워지므로 넘기지 않는다. "
+        "언제 쓰나: 정책을 보고서에 넣기 전에 부른다. 해당 없음이면 그 정책은 빼고 search_policy의 exclude_ids로 다른 정책을 찾는다. "
+        "보고서에는 해당은 \"해당\"으로, 확인 필요는 \"확인 필요\"로 넣고 해당 없음은 넣지 않는다. "
+        "해당이어도 extra_conditions(무주택·자산 등)는 체크리스트에 확인 항목으로 적는다. "
+        "scope가 전국인데 provider가 다른 지역 기관이면 그 지역으로 옮겨야 하는 사업일 수 있으니 매물 지역과 맞는지 보고 고른다. "
+        "쓰지 말 것: search_policy 결과에 없던 정책 ID를 지어내 넣지 않는다."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "policy_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "minItems": 1,
+                "maxItems": 10,
+                "description": "판정할 정책의 policy_id 목록. search_policy 결과 값을 그대로 넣는다.",
+            },
+            "region": {
+                "type": "string",
+                "description": "매물 지역. search_policy에 넣은 값과 같게 넣는다.",
+            },
+        },
+        "required": ["policy_ids", "region"],
+    },
+    injected={"age_band": CTX_AGE_BAND, "income_band": CTX_INCOME_BAND},
+)
 
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
-    for spec in (SEARCH_PRICE, CALC_JEONSE_RATIO, SEARCH_LAW, SUBMIT_REPORT)
+    for spec in (
+        SEARCH_PRICE, CALC_JEONSE_RATIO, SEARCH_LAW, SEARCH_POLICY, CHECK_ELIGIBILITY, SUBMIT_REPORT,
+    )
 }
 
 FINAL_TOOL = SUBMIT_REPORT.name
